@@ -30,12 +30,25 @@ export default function Home() {
         body: JSON.stringify({ jobDescription, resume }),
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Generation failed');
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || 'Generation failed');
+      }
 
-      // Parse plain text into separate sections
-      const sections = parseSections(data.text);
-      setOutput(sections);
+      const data = await res.json();
+
+      // Split plain text into sections based on headings
+      const text = data.result as string;
+      const tailoredMatch = text.match(/Tailored Resume[:\n]*(.*?)(?=Cover Letter[:\n])/s);
+      const coverLetterMatch = text.match(/Cover Letter[:\n]*(.*?)(?=Interview Preparation[:\n])/s);
+      const interviewMatch = text.match(/Interview Preparation[:\n]*(.*)$/s);
+
+      setOutput({
+        tailoredResume: tailoredMatch?.[1].trim() || '(No tailored resume generated)',
+        coverLetter: coverLetterMatch?.[1].trim() || '(No cover letter generated)',
+        interviewPrep: interviewMatch?.[1].trim() || '(No interview prep generated)',
+      });
+
       setActiveTab('tailoredResume');
     } catch (err: any) {
       alert(err.message || 'Something went wrong.');
@@ -44,22 +57,8 @@ export default function Home() {
     }
   }
 
-  function parseSections(text: string) {
-    const getSection = (label: string) => {
-      const regex = new RegExp(`--- ${label} ---\\s*([\\s\\S]*?)(?=---|$)`, 'i');
-      const match = text.match(regex);
-      return match ? match[1].trim() : '';
-    };
-
-    return {
-      tailoredResume: getSection('Tailored Resume'),
-      coverLetter: getSection('Cover Letter'),
-      interviewPrep: getSection('Interview Prep'),
-    };
-  }
-
   function downloadText(text = '', filename = 'output.txt') {
-    if (!text) {
+    if (!text.trim()) {
       alert('Nothing to download. Generate the content first.');
       return;
     }
@@ -81,7 +80,7 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Main */}
+      {/* Main content */}
       <main className="flex-grow max-w-6xl mx-auto px-6 py-10 w-full">
         {/* Input Section */}
         <section id="input" className="bg-white rounded-xl shadow-lg p-8 mb-12">
@@ -97,6 +96,7 @@ export default function Home() {
                 onChange={(e) => setJobDescription(e.target.value)}
               />
             </div>
+
             <div>
               <label className="block mb-1 font-medium text-gray-700">Your Resume (plain text)</label>
               <textarea
@@ -107,6 +107,7 @@ export default function Home() {
                 onChange={(e) => setResume(e.target.value)}
               />
             </div>
+
             <div className="flex items-center space-x-4">
               <button
                 type="submit"
@@ -133,14 +134,14 @@ export default function Home() {
         {/* Results Section */}
         <section id="results" className="bg-white rounded-xl shadow-lg p-8">
           <h2 className="text-xl font-semibold text-gray-800 mb-6">Results</h2>
-          {!output && <p className="text-gray-500 italic">No results yet — generate to see the output here.</p>}
+          {!output && <p className="text-gray-500 italic">No results yet — generate to see tailored output here.</p>}
           {output && (
             <>
               <nav className="flex border-b border-gray-200 mb-4 space-x-4">
-                {(['tailoredResume', 'coverLetter', 'interviewPrep'] as const).map((tab) => (
+                {['tailoredResume', 'coverLetter', 'interviewPrep'].map((tab) => (
                   <button
                     key={tab}
-                    onClick={() => setActiveTab(tab)}
+                    onClick={() => setActiveTab(tab as any)}
                     className={`pb-2 font-medium border-b-2 ${
                       activeTab === tab
                         ? 'border-indigo-600 text-indigo-700'
@@ -157,11 +158,12 @@ export default function Home() {
               </nav>
 
               <div className="min-h-[180px] whitespace-pre-wrap text-gray-800 bg-indigo-50 rounded-md p-4 border border-indigo-200 text-sm">
-                {activeTab === 'tailoredResume' && (output.tailoredResume || '(No tailored resume generated)')}
-                {activeTab === 'coverLetter' && (output.coverLetter || '(No cover letter generated)')}
-                {activeTab === 'interviewPrep' && (output.interviewPrep || '(No interview prep generated)')}
+                {activeTab === 'tailoredResume' && output.tailoredResume}
+                {activeTab === 'coverLetter' && output.coverLetter}
+                {activeTab === 'interviewPrep' && output.interviewPrep}
               </div>
 
+              {/* Download Buttons */}
               <div className="mt-5 flex gap-3">
                 <button
                   onClick={() => downloadText(output.tailoredResume, 'tailored-resume.txt')}
@@ -186,19 +188,6 @@ export default function Home() {
           )}
         </section>
       </main>
-
-      <footer className="bg-indigo-700 text-indigo-100 py-6 mt-12">
-        <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center text-sm">
-          <p>© {new Date().getFullYear()} AI Job Assistant. All rights reserved.</p>
-          <p className="mt-2 md:mt-0">
-            Developed by{' '}
-            {' '}
-            <a href="https://github.com/BrightAlemneh" target="_blank" rel="noreferrer" className="underline">
-              Birhanu Alemneh
-            </a>
-          </p>
-        </div>
-      </footer>
     </div>
   );
 }
