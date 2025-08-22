@@ -1,102 +1,206 @@
-import Image from "next/image";
+'use client';
+
+import { useState } from 'react';
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [jobDescription, setJobDescription] = useState('');
+  const [resume, setResume] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [output, setOutput] = useState<{
+    tailoredResume: string;
+    coverLetter: string;
+    interviewPrep: string;
+  } | null>(null);
+  const [activeTab, setActiveTab] = useState<'tailoredResume' | 'coverLetter' | 'interviewPrep'>('tailoredResume');
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!jobDescription.trim() || !resume.trim()) {
+      alert('Please paste both a job description and your resume.');
+      return;
+    }
+
+    setLoading(true);
+    setOutput(null);
+
+    try {
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobDescription, resume }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Generation failed');
+
+      // Parse plain text into separate sections
+      const sections = parseSections(data.text);
+      setOutput(sections);
+      setActiveTab('tailoredResume');
+    } catch (err: any) {
+      alert(err.message || 'Something went wrong.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function parseSections(text: string) {
+    const getSection = (label: string) => {
+      const regex = new RegExp(`--- ${label} ---\\s*([\\s\\S]*?)(?=---|$)`, 'i');
+      const match = text.match(regex);
+      return match ? match[1].trim() : '';
+    };
+
+    return {
+      tailoredResume: getSection('Tailored Resume'),
+      coverLetter: getSection('Cover Letter'),
+      interviewPrep: getSection('Interview Prep'),
+    };
+  }
+
+  function downloadText(text = '', filename = 'output.txt') {
+    if (!text) {
+      alert('Nothing to download. Generate the content first.');
+      return;
+    }
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-indigo-50 to-white flex flex-col">
+      {/* Header */}
+      <header className="sticky top-0 bg-white shadow-md z-50">
+        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+          <h1 className="text-3xl font-extrabold text-indigo-700 select-none">AI Job Assistant</h1>
         </div>
+      </header>
+
+      {/* Main */}
+      <main className="flex-grow max-w-6xl mx-auto px-6 py-10 w-full">
+        {/* Input Section */}
+        <section id="input" className="bg-white rounded-xl shadow-lg p-8 mb-12">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">Enter Job Description & Resume</h2>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label className="block mb-1 font-medium text-gray-700">Job Description</label>
+              <textarea
+                className="w-full rounded-md border border-gray-300 p-3 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                rows={6}
+                placeholder="Paste the full job description here..."
+                value={jobDescription}
+                onChange={(e) => setJobDescription(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block mb-1 font-medium text-gray-700">Your Resume (plain text)</label>
+              <textarea
+                className="w-full rounded-md border border-gray-300 p-3 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                rows={6}
+                placeholder="Paste your resume here..."
+                value={resume}
+                onChange={(e) => setResume(e.target.value)}
+              />
+            </div>
+            <div className="flex items-center space-x-4">
+              <button
+                type="submit"
+                disabled={loading}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-md font-semibold shadow disabled:opacity-50"
+              >
+                {loading ? 'Generating...' : 'Generate Application'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setJobDescription('');
+                  setResume('');
+                  setOutput(null);
+                }}
+                className="text-gray-600 hover:underline"
+              >
+                Clear
+              </button>
+            </div>
+          </form>
+        </section>
+
+        {/* Results Section */}
+        <section id="results" className="bg-white rounded-xl shadow-lg p-8">
+          <h2 className="text-xl font-semibold text-gray-800 mb-6">Results</h2>
+          {!output && <p className="text-gray-500 italic">No results yet — generate to see the output here.</p>}
+          {output && (
+            <>
+              <nav className="flex border-b border-gray-200 mb-4 space-x-4">
+                {(['tailoredResume', 'coverLetter', 'interviewPrep'] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`pb-2 font-medium border-b-2 ${
+                      activeTab === tab
+                        ? 'border-indigo-600 text-indigo-700'
+                        : 'border-transparent text-gray-500 hover:text-indigo-600'
+                    }`}
+                  >
+                    {tab === 'tailoredResume'
+                      ? 'Tailored Resume'
+                      : tab === 'coverLetter'
+                      ? 'Cover Letter'
+                      : 'Interview Prep'}
+                  </button>
+                ))}
+              </nav>
+
+              <div className="min-h-[180px] whitespace-pre-wrap text-gray-800 bg-indigo-50 rounded-md p-4 border border-indigo-200 text-sm">
+                {activeTab === 'tailoredResume' && (output.tailoredResume || '(No tailored resume generated)')}
+                {activeTab === 'coverLetter' && (output.coverLetter || '(No cover letter generated)')}
+                {activeTab === 'interviewPrep' && (output.interviewPrep || '(No interview prep generated)')}
+              </div>
+
+              <div className="mt-5 flex gap-3">
+                <button
+                  onClick={() => downloadText(output.tailoredResume, 'tailored-resume.txt')}
+                  className="px-4 py-2 rounded bg-indigo-100 text-indigo-700 font-semibold hover:bg-indigo-200"
+                >
+                  Download Resume
+                </button>
+                <button
+                  onClick={() => downloadText(output.coverLetter, 'cover-letter.txt')}
+                  className="px-4 py-2 rounded bg-indigo-100 text-indigo-700 font-semibold hover:bg-indigo-200"
+                >
+                  Download Cover Letter
+                </button>
+                <button
+                  onClick={() => downloadText(output.interviewPrep, 'interview-prep.txt')}
+                  className="px-4 py-2 rounded bg-indigo-100 text-indigo-700 font-semibold hover:bg-indigo-200"
+                >
+                  Download Interview Prep
+                </button>
+              </div>
+            </>
+          )}
+        </section>
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
+
+      <footer className="bg-indigo-700 text-indigo-100 py-6 mt-12">
+        <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center text-sm">
+          <p>© {new Date().getFullYear()} AI Job Assistant. All rights reserved.</p>
+          <p className="mt-2 md:mt-0">
+            Built with{' '}
+            <a href="https://nextjs.org" target="_blank" rel="noreferrer" className="underline">
+              Next.js
+            </a>{' '}
+            &{' '}
+            <a href="https://openai.com" target="_blank" rel="noreferrer" className="underline">
+              OpenAI
+            </a>
+          </p>
+        </div>
       </footer>
     </div>
   );
