@@ -191,13 +191,10 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center text-sm">
           <p>© {new Date().getFullYear()} AI Job Assistant. All rights reserved.</p>
           <p className="mt-2 md:mt-0">
-            Built with{' '}
-            <a href="https://nextjs.org" target="_blank" rel="noreferrer" className="underline">
-              Next.js
-            </a>{' '}
-            &{' '}
-            <a href="https://openai.com" target="_blank" rel="noreferrer" className="underline">
-              OpenAI
+            Developed by{' '}
+            {' '}
+            <a href="https://github.com/BrightAlemneh" target="_blank" rel="noreferrer" className="underline">
+              Birhanu Alemneh
             </a>
           </p>
         </div>
